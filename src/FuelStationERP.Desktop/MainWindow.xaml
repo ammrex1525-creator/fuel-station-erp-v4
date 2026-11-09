@@ -1,0 +1,81 @@
+<Window x:Class="FuelStationERP.Desktop.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="FuelStationERP · CLEON Station Operations" Height="900" Width="1500"
+        MinHeight="720" MinWidth="1120" WindowState="Maximized" Background="#F2F4F7">
+  <Window.Resources>
+    <SolidColorBrush x:Key="Ink" Color="#172B4D"/>
+    <SolidColorBrush x:Key="Muted" Color="#667085"/>
+    <SolidColorBrush x:Key="Blue" Color="#155EEF"/>
+    <SolidColorBrush x:Key="Orange" Color="#F58220"/>
+    <Style TargetType="Button">
+      <Setter Property="Padding" Value="16,9"/><Setter Property="Margin" Value="3"/>
+      <Setter Property="Background" Value="#155EEF"/><Setter Property="Foreground" Value="White"/>
+      <Setter Property="BorderThickness" Value="0"/><Setter Property="FontWeight" Value="SemiBold"/>
+      <Setter Property="Cursor" Value="Hand"/><Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+      <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="Button"><Border x:Name="ButtonBorder" Background="{TemplateBinding Background}" CornerRadius="6" Padding="{TemplateBinding Padding}"><ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/></Border><ControlTemplate.Triggers><Trigger Property="IsMouseOver" Value="True"><Setter TargetName="ButtonBorder" Property="Opacity" Value="0.88"/></Trigger><Trigger Property="IsEnabled" Value="False"><Setter TargetName="ButtonBorder" Property="Opacity" Value="0.55"/></Trigger></ControlTemplate.Triggers></ControlTemplate></Setter.Value></Setter>
+    </Style>
+    <Style TargetType="TextBox">
+      <Setter Property="Padding" Value="10,8"/><Setter Property="Margin" Value="3"/>
+      <Setter Property="MinWidth" Value="130"/><Setter Property="BorderBrush" Value="#D0D5DD"/>
+      <Setter Property="BorderThickness" Value="1"/><Setter Property="Background" Value="White"/>
+      <Setter Property="VerticalContentAlignment" Value="Center"/>
+    </Style>
+    <Style TargetType="ComboBox">
+      <Setter Property="Padding" Value="8"/><Setter Property="Margin" Value="3"/>
+      <Setter Property="MinWidth" Value="150"/><Setter Property="Background" Value="White"/>
+    </Style>
+    <Style TargetType="DataGrid">
+      <Setter Property="Margin" Value="0,14,0,0"/><Setter Property="AutoGenerateColumns" Value="True"/>
+      <Setter Property="CanUserAddRows" Value="False"/><Setter Property="IsReadOnly" Value="True"/>
+      <Setter Property="GridLinesVisibility" Value="Horizontal"/><Setter Property="HeadersVisibility" Value="Column"/>
+      <Setter Property="RowBackground" Value="White"/><Setter Property="AlternatingRowBackground" Value="#F8FAFC"/>
+      <Setter Property="BorderThickness" Value="0"/><Setter Property="RowHeight" Value="38"/>
+      <Setter Property="ColumnHeaderHeight" Value="42"/><Setter Property="CanUserResizeRows" Value="False"/>
+      <Setter Property="HorizontalGridLinesBrush" Value="#EAECF0"/>
+      <Setter Property="ColumnHeaderStyle"><Setter.Value><Style TargetType="DataGridColumnHeader"><Setter Property="Background" Value="#F2F4F7"/><Setter Property="Foreground" Value="#475467"/><Setter Property="FontWeight" Value="SemiBold"/><Setter Property="Padding" Value="12,8"/><Setter Property="BorderThickness" Value="0,0,0,1"/><Setter Property="BorderBrush" Value="#EAECF0"/></Style></Setter.Value></Setter>
+    </Style>
+    <Style TargetType="TabControl"><Setter Property="Background" Value="Transparent"/><Setter Property="BorderThickness" Value="0"/><Setter Property="Padding" Value="0"/></Style>
+    <Style TargetType="TabItem">
+      <Setter Property="Padding" Value="17,12"/><Setter Property="FontWeight" Value="SemiBold"/><Setter Property="Foreground" Value="#475467"/><Setter Property="Background" Value="Transparent"/><Setter Property="BorderThickness" Value="0"/>
+      <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="TabItem"><Border x:Name="TabBorder" Background="{TemplateBinding Background}" BorderBrush="Transparent" BorderThickness="0,0,0,3" Padding="{TemplateBinding Padding}"><ContentPresenter ContentSource="Header" HorizontalAlignment="Center" VerticalAlignment="Center"/></Border><ControlTemplate.Triggers><Trigger Property="IsSelected" Value="True"><Setter TargetName="TabBorder" Property="Background" Value="White"/><Setter TargetName="TabBorder" Property="BorderBrush" Value="#F58220"/><Setter Property="Foreground" Value="#172B4D"/></Trigger><Trigger Property="IsMouseOver" Value="True"><Setter TargetName="TabBorder" Property="Background" Value="#FFFFFF"/></Trigger></ControlTemplate.Triggers></ControlTemplate></Setter.Value></Setter>
+    </Style>
+  </Window.Resources>
+  <DockPanel LastChildFill="True">
+    <Border DockPanel.Dock="Top" Background="#101828" Padding="26,17">
+      <Grid>
+        <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+        <Border Grid.Column="0" Background="#101828" CornerRadius="7" Padding="4,0" VerticalAlignment="Center" Margin="0,0,18,0">
+          <Image Source="/FuelStationERP.Desktop;component/Assets/cleon-logo-dark.png" Height="70" Width="158" Stretch="Uniform"/>
+        </Border>
+        <StackPanel Grid.Column="1" VerticalAlignment="Center">
+          <TextBlock Text="Station Operations" Foreground="White" FontSize="23" FontWeight="Bold"/>
+          <TextBlock Text="One workspace for PMS · AGO · LPG" Foreground="#D0D5DD" Margin="0,4,0,0" FontSize="13"/>
+        </StackPanel>
+        <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
+          <StackPanel Margin="0,0,12,0" VerticalAlignment="Center"><TextBlock Text="ACTIVE BRANCH" Foreground="#98A2B3" FontSize="10" FontWeight="SemiBold" HorizontalAlignment="Right"/><TextBlock x:Name="BranchLabel" Text="Local branch data" Foreground="#EAECF0" FontSize="12" HorizontalAlignment="Right" Margin="0,3,0,0"/></StackPanel>
+          <ComboBox x:Name="BranchSelector" MinWidth="190" Margin="6" VerticalAlignment="Center"/>
+          <Button x:Name="AddBranchButton" Content="+  Add branch" Margin="6" VerticalAlignment="Center" Background="#344054"/>
+        </StackPanel>
+      </Grid>
+    </Border>
+    <StatusBar DockPanel.Dock="Bottom" Background="White" Padding="14,5" BorderBrush="#EAECF0" BorderThickness="0,1,0,0">
+      <TextBlock x:Name="StatusText" Text="Ready" Foreground="#475467"/>
+      <Separator/>
+      <TextBlock Text="Local station database" Foreground="#667085"/>
+    </StatusBar>
+    <Border Margin="22,16,22,14" Background="White" CornerRadius="9" BorderBrush="#EAECF0" BorderThickness="1" Padding="8,0,8,8">
+      <TabControl x:Name="WorkspaceTabs">
+        <TabItem Header="Overview"><ScrollViewer><StackPanel x:Name="OverviewHost" Margin="20"/></ScrollViewer></TabItem>
+        <TabItem Header="Station Setup"><Grid x:Name="SetupHost" Margin="20"/></TabItem>
+        <TabItem Header="Pump Sessions"><Grid x:Name="SessionsHost" Margin="20"/></TabItem>
+        <TabItem Header="Fuel Deliveries"><Grid x:Name="ReceiptsHost" Margin="20"/></TabItem>
+        <TabItem Header="LPG Fills"><Grid x:Name="LpgHost" Margin="20"/></TabItem>
+        <TabItem Header="Tank Stock Checks"><Grid x:Name="DipsHost" Margin="20"/></TabItem>
+        <TabItem Header="Expenses"><Grid x:Name="ExpensesHost" Margin="20"/></TabItem>
+        <TabItem Header="Cash &amp; Accounts"><Grid x:Name="AccountsHost" Margin="20"/></TabItem>
+        <TabItem Header="Report Center"><Grid x:Name="ReportsHost" Margin="20"/></TabItem>
+      </TabControl>
+    </Border>
+  </DockPanel>
+</Window>

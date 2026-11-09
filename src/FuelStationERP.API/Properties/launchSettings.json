@@ -1,0 +1,4 @@
+{
+  "$schema": "http://json.schemastore.org/launchsettings.json",
+  "profiles": { "FuelStationERP.API": { "commandName": "Project", "dotnetRunMessages": true, "launchBrowser": false, "applicationUrl": "https://localhost:7290;http://localhost:5290", "environmentVariables": { "ASPNETCORE_ENVIRONMENT": "Development" } } }
+}
