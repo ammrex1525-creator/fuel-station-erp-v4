@@ -870,9 +870,9 @@ public partial class MainWindow : Window
         var baselineUnits = baselineDips.Sum(d => d!.ClosingDip);
         var baselineValue = valuedBaselines.Sum(d => d!.BaselineCost!.Value);
         var unvaluedBaselineCount = baselineDips.Count - valuedBaselines.Count;
-        var baselineSummary = new TextBlock { Text = $"Opening inventory baseline · {baselineUnits:N1} product units · ₦{baselineValue:N2} cost (excluded from profit){(unvaluedBaselineCount > 0 ? $" · {unvaluedBaselineCount} baseline(s) need a costed opening receipt" : string.Empty)}", TextWrapping = TextWrapping.Wrap, Foreground = (Brush)FindResource("Muted"), Margin = new Thickness(7, 4, 7, 8) };
-        _reportVisuals.Children.Add(baselineSummary);
-        _overviewVisuals.Children.Add(baselineSummary);
+        var baselineText = $"Opening inventory baseline · {baselineUnits:N1} product units · ₦{baselineValue:N2} cost (excluded from profit){(unvaluedBaselineCount > 0 ? $" · {unvaluedBaselineCount} baseline(s) need a costed opening receipt" : string.Empty)}";
+        _reportVisuals.Children.Add(new TextBlock { Text = baselineText, TextWrapping = TextWrapping.Wrap, Foreground = (Brush)FindResource("Muted"), Margin = new Thickness(7, 4, 7, 8) });
+        _overviewVisuals.Children.Add(new TextBlock { Text = baselineText, TextWrapping = TextWrapping.Wrap, Foreground = (Brush)FindResource("Muted"), Margin = new Thickness(7, 4, 7, 8) });
         var varianceBars = new List<ChartBar>();
         foreach (var t in tanks)
         {

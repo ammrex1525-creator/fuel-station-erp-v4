@@ -66,7 +66,8 @@ dotnet build FuelStationERP.sln
 - LPG fill/sale by kilograms with a per-kg selling price, cash/POS, optional cylinder count and size, stock limit, FIFO COGS and gross profit. LPG does not use pump-meter sessions.
 - Physical tank stock checks with book-versus-physical variance.
 - Operating expenses, cash/POS collections linked to pump sessions, account setup and account transactions.
-- Sales report including pump sessions, LPG fills and expenses.
+- Attendant payroll previews and monthly payouts, with overages applied to outstanding shorts before salary deductions. Payments are recorded atomically as expenses and linked Cash/Bank account transactions, with allocations retained for audit.
+- Sales report including pump sessions, LPG fills, payroll expenses and other operating expenses.
 
 Version 3 semantics retained for metered pump sessions: litres sold = closing meter − opening meter − RTT; sales = quantity sold × unit price; short/over = cash + POS − (sales − session expense); FIFO COGS consumes the oldest eligible same-product delivery batches. LPG uses a separate weighed-fill sale because a cylinder fill is not represented by a pump meter.
 
@@ -87,7 +88,7 @@ PMS and AGO are seeded as metered products in litres. Add tanks, pumps and atten
 - SQL Server is the shared deployment option for API and desktop data. SQLite remains available for local development. Back up the selected database independently.
 - Branch IDs are recorded throughout operational entities. The API enforces branch claims on branch-scoped endpoints.
 
-The web and mobile clients use the API. The existing WPF screens share SQL Server data when configured but still access the database directly. PDF, Excel and CSV report exports are available across desktop, web and mobile. Payroll processing, supplier settlement, edit/reversal workflows, delivery shortage settlement, attendant short recovery allocation and Version 3 data import still need separate business-policy and migration work before production rollout.
+Supplier settlement policy, edit/reversal workflows, delivery shortage settlement, attendant short recovery allocation and Version 3 data import still need separate business-policy and migration work before production rollout. Payroll follows the Version 3 salary schedule and short/overage rules; each payout requires a valid Cash or Bank account and appears in expenses and account reconciliation.
 
 ## Migration reference
 

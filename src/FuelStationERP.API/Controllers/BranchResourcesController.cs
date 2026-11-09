@@ -1,5 +1,6 @@
 using FuelStationERP.Domain.Entities;
 using FuelStationERP.Infrastructure.Persistence;
+using FuelStationERP.Infrastructure.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -16,7 +17,7 @@ public sealed class BranchResourcesController(ErpDbContext db) : ControllerBase
         var accounts = await db.Accounts.AsNoTracking().Where(x => x.BranchId == branchId).OrderBy(x => x.AccountType).ThenBy(x => x.Name).ToListAsync(ct);
         var txns = await db.AccountTransactions.AsNoTracking().Where(x => x.BranchId == branchId).ToListAsync(ct);
         var today = DateOnly.FromDateTime(DateTime.Today);
-        return Ok(accounts.Select(x => new { x.Id, x.Name, x.AccountType, x.AccountNumber, x.Provider, x.IsActive, Balance = AccountBalance(x, txns, today) }));
+        return Ok(accounts.Select(x => new { x.Id, x.Name, x.AccountType, x.AccountNumber, x.Provider, x.IsActive, Balance = AccountBalanceCalculator.Calculate(x, txns, today) }));
     }
 
     [HttpPost("accounts")]
@@ -73,7 +74,7 @@ public sealed class BranchResourcesController(ErpDbContext db) : ControllerBase
         }
         var txns = await db.AccountTransactions.Where(x => x.BranchId == branchId).ToListAsync(ct);
         var outflow = type is "Cash Expense" or "Account Expense" or "Product Payment" or "Account Payment / Amount Sent" or "Bank Deposit" or "POS Settlement" or "Account Transfer";
-        var current = AccountBalance(account, txns, request.TransactionDate);
+        var current = AccountBalanceCalculator.Calculate(account, txns, request.TransactionDate);
         if (outflow && request.Amount > current + 0.005m) return BadRequest($"Amount exceeds the account balance of ₦{current:N2}.");
         var item = new AccountTransaction { BranchId = branchId, AccountId = account.Id, TargetAccountId = targetId, FuelReceiptId = receiptId, TransactionType = type,
             Amount = request.Amount, Reference = request.Reference, Description = request.Description, OccurredAt = new DateTimeOffset(request.TransactionDate.ToDateTime(TimeOnly.MinValue), DateTimeOffset.UtcNow.Offset) };
@@ -269,7 +270,7 @@ public sealed class BranchResourcesController(ErpDbContext db) : ControllerBase
         {
             source = await db.Accounts.SingleOrDefaultAsync(x => x.Id == accountId && x.BranchId == branchId && x.IsActive, ct);
             if (source is null) return BadRequest("Choose an active source account in this branch.");
-            var balance = AccountBalance(source, await db.AccountTransactions.Where(x => x.BranchId == branchId).ToListAsync(ct), DateOnly.FromDateTime(item.ExpenseAt.LocalDateTime));
+            var balance = AccountBalanceCalculator.Calculate(source, await db.AccountTransactions.Where(x => x.BranchId == branchId).ToListAsync(ct), DateOnly.FromDateTime(item.ExpenseAt.LocalDateTime));
             if (item.Amount > balance + 0.005m) return BadRequest($"Expense exceeds the selected account balance of ₦{balance:N2}.");
         }
         item.Id = 0; item.BranchId = branchId; item.Description = item.Description.Trim(); db.Expenses.Add(item);
@@ -327,28 +328,6 @@ public sealed class BranchResourcesController(ErpDbContext db) : ControllerBase
     private bool CanAccess(long branchId) => User.IsInRole("OWNER") || User.FindAll("branch_id").Any(x => x.Value == branchId.ToString(System.Globalization.CultureInfo.InvariantCulture));
     private bool CanManage(long branchId) => CanOperate(branchId) && (User.IsInRole("OWNER") || User.FindAll("branch_role").Any(x => x.Value == $"{branchId}:ADMIN" || x.Value == $"{branchId}:MANAGER"));
     private bool CanOperate(long branchId) => User.IsInRole("OWNER") || User.FindAll("branch_role").Any(x => x.Value == $"{branchId}:STAFF" || x.Value == $"{branchId}:MANAGER" || x.Value == $"{branchId}:ADMIN");
-
-    private static decimal AccountBalance(Account account, IReadOnlyCollection<AccountTransaction> all, DateOnly cutoff)
-    {
-        var items = all.Where(x => DateOnly.FromDateTime(x.OccurredAt.LocalDateTime) <= cutoff && (x.AccountId == account.Id || x.TargetAccountId == account.Id)).OrderBy(x => x.OccurredAt).ThenBy(x => x.Id).ToList();
-        var anchor = account.AccountType == "CASH" ? items.LastOrDefault(x => x.AccountId == account.Id && x.TransactionType == "Cash Count") : null;
-        decimal balance = anchor?.Amount ?? 0;
-        if (anchor is not null) items = items.Where(x => x.OccurredAt.Date > anchor.OccurredAt.Date || (x.OccurredAt.Date == anchor.OccurredAt.Date && x.Id > anchor.Id)).ToList();
-        foreach (var item in items)
-        {
-            if (item.TransactionType == "Cash Count") continue;
-            if (item.TargetAccountId == account.Id && item.AccountId != account.Id) { balance += item.Amount; continue; }
-            if (item.AccountId != account.Id) continue;
-            if (item.TransactionType is "Opening Balance" or "Account Receipt" or "POS Transaction" or "Cash collection" or "POS collection") balance += item.Amount;
-            else if (item.TransactionType is "Account Payment / Amount Sent" or "Bank Payment / Withdrawal" or "Cash Expense" or "Account Expense" or "Product Payment" or "Expense") balance -= item.Amount;
-            else if (item.TransactionType is "Account Transfer" or "Bank Deposit" or "POS Settlement")
-            {
-                if (item.TargetAccountId is long target && target != account.Id) balance -= item.Amount;
-                else if (item.TargetAccountId is null) balance += item.Amount;
-            }
-        }
-        return balance;
-    }
 }
 
 public sealed record OpenPumpRunRequest(long PumpId, decimal OpeningMeter);

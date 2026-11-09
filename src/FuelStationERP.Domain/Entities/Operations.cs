@@ -56,3 +56,10 @@ public sealed class StaffAttendant : IBranchEntity { public long Id { get; set; 
 public sealed class PumpSessionAudit { public long Id { get; set; } public long PumpSessionId { get; set; } public DateTimeOffset ChangedAt { get; set; } public string? ChangedBy { get; set; } public string Reason { get; set; } = ""; public decimal? OldOpeningMeter { get; set; } public decimal? NewOpeningMeter { get; set; } public decimal? OldClosingMeter { get; set; } public decimal? NewClosingMeter { get; set; } }
 public sealed class PumpRunReceipt { public long Id { get; set; } public long PumpRunId { get; set; } public long FuelReceiptId { get; set; } public decimal QuantityReceived { get; set; } public decimal TotalCost { get; set; } public decimal? OpeningMeter { get; set; } }
 public sealed class AttendantShortAllocation { public long Id { get; set; } public long ReconciliationId { get; set; } public long PumpSessionId { get; set; } public decimal Amount { get; set; } }
+public sealed class AttendantSalaryPayment : IBranchEntity
+{
+    public long Id { get; set; } public long BranchId { get; set; } public long AttendantId { get; set; } public DateOnly Payday { get; set; } public DateOnly PaidDate { get; set; }
+    public decimal BaseSalary { get; set; } public decimal ShortDeduction { get; set; } public decimal OverageOffset { get; set; } public decimal OverageCredit { get; set; } public decimal NetSalary { get; set; }
+    public long AccountId { get; set; } public long? AccountTransactionId { get; set; } public long? ExpenseId { get; set; } public string? Notes { get; set; }
+}
+public sealed class AttendantSalaryOverageAllocation { public long Id { get; set; } public long PaymentId { get; set; } public long PumpSessionId { get; set; } public string AllocationType { get; set; } = ""; public decimal Amount { get; set; } }

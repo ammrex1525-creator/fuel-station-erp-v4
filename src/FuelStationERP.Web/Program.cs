@@ -77,11 +77,40 @@ app.MapGet("/branches/{branchId:long}", async (long branchId, HttpContext contex
     if (!response.IsSuccessStatusCode) return Html(Layout("Branch dashboard", "FuelStationERP · Web", auth, Error(response)));
     var data = JsonNode.Parse(await response.Content.ReadAsStringAsync());
     var body = $"<section class='hero'><span class='eyebrow'>BRANCH · {branchId} · {E(Val(data, "date"))}</span><h1>Today's operations</h1><p>Live totals from posted sales, stock cost, expenses and cash reconciliation.</p></section>{BranchNav(branchId, "dashboard")}<section class='grid metrics'>{Metric("Fuel sales", Money(data, "fuelSales"))}{Metric("Other product sales", Money(data, "otherProductSales"))}{Metric("Gross profit", Money(data, "grossProfit"))}{Metric("Expenses", Money(data, "expenses"))}{Metric("Net operating profit", Money(data, "netOperatingProfit"))}{Metric("Short / over", Money(data, "shortOver"))}</section><section class='panel'><h2>Recent pump sessions</h2>{RenderRecentSessions(data?["recentSessions"] as JsonArray)}</section><div class='section-heading'><div><h2>Station operations</h2><p>Quick access to the daily tools for this branch</p></div></div><section class='grid links'>";
-    foreach (var item in new[] { ("pump-sessions", "Pump sessions", "Post and review metered sales."), ("fuel-receipts", "Fuel deliveries", "Record deliveries and reconcile shortages."), ("product-sales", "LPG fills", "Record weighed product fills."), ("tank-dips", "Stock checks", "Compare physical readings with book stock."), ("expenses", "Expenses", "Capture and review station costs."), ("accounts", "Accounts & cash", "Review balances and daily reconciliation."), ("pump-runs", "Pump runs", "Open and close pump meter runs."), ("tanks", "Tanks", "Manage tank setup and capacities."), ("pumps", "Pumps", "Manage pump-to-tank assignments."), ("attendants", "Attendants", "Manage station attendant records."), ("suppliers", "Suppliers", "Maintain fuel supplier details."), ("product-prices", "Selling prices", "Set effective product prices.") })
+    foreach (var item in new[] { ("pump-sessions", "Pump sessions", "Post and review metered sales."), ("fuel-receipts", "Fuel deliveries", "Record deliveries and reconcile shortages."), ("product-sales", "LPG fills", "Record weighed product fills."), ("tank-dips", "Stock checks", "Compare physical readings with book stock."), ("expenses", "Expenses", "Capture and review station costs."), ("accounts", "Accounts & cash", "Review balances and daily reconciliation."), ("payroll", "Attendant payroll", "Calculate and record monthly salary payouts."), ("pump-runs", "Pump runs", "Open and close pump meter runs."), ("tanks", "Tanks", "Manage tank setup and capacities."), ("pumps", "Pumps", "Manage pump-to-tank assignments."), ("attendants", "Attendants", "Manage station attendant records."), ("suppliers", "Suppliers", "Maintain fuel supplier details."), ("product-prices", "Selling prices", "Set effective product prices.") })
         body += $"<a class='tile compact' href='/branches/{branchId}/{item.Item1}'><h3>{item.Item2}</h3><p>{item.Item3}</p><span class='link'>Open workspace <span aria-hidden='true'>→</span></span></a>";
     body += $"<a class='tile compact' href='/branches/{branchId}/reports'><h3>Report Center</h3><p>Analyze performance and export reports.</p><span class='link'>Open workspace <span aria-hidden='true'>→</span></span></a>";
     body += "</section>";
     return Html(Layout("Branch dashboard", "FuelStationERP · Web", auth, body));
+}).RequireAuthorization();
+
+app.MapGet("/branches/{branchId:long}/payroll", async (long branchId, HttpContext context, IHttpClientFactory clients) =>
+{
+    var auth = Auth(context); if (auth is null) return Results.Redirect("/login");
+    using var payrollResponse = await ApiGet(clients, auth, $"api/v1/branches/{branchId}/payroll");
+    if (!payrollResponse.IsSuccessStatusCode) return Html(Layout("Attendant payroll", "FuelStationERP · Web", auth, Error(payrollResponse)));
+    using var accountsResponse = await ApiGet(clients, auth, $"api/v1/branches/{branchId}/accounts");
+    if (!accountsResponse.IsSuccessStatusCode) return Html(Layout("Attendant payroll", "FuelStationERP · Web", auth, Error(accountsResponse)));
+    var data = JsonNode.Parse(await payrollResponse.Content.ReadAsStringAsync());
+    var accounts = JsonNode.Parse(await accountsResponse.Content.ReadAsStringAsync()) as JsonArray ?? [];
+    var today = DateOnly.FromDateTime(DateTime.Today);
+    var body = $"<section class='hero'><a class='back' href='/branches/{branchId}'>← Branch dashboard</a><span class='eyebrow'>PEOPLE · PAYROLL</span><h1>Attendant payroll</h1><p>Review monthly salary, outstanding session shorts and eligible overages. Approved payouts create a payroll expense and a linked cash or bank ledger entry.</p></section>{BranchNav(branchId, "payroll")}";
+    body += RenderPayroll(data?["payroll"] as JsonArray ?? [], data?["payments"] as JsonArray ?? [], accounts, branchId, today);
+    return Html(Layout("Attendant payroll", "FuelStationERP · Web", auth, body));
+}).RequireAuthorization();
+
+app.MapPost("/branches/{branchId:long}/payroll/payments", async (long branchId, HttpContext context, IHttpClientFactory clients) =>
+{
+    var auth = Auth(context); if (auth is null) return Results.Redirect("/login");
+    var form = await context.Request.ReadFormAsync();
+    if (!long.TryParse(form["attendantId"], out var attendantId) || !long.TryParse(form["accountId"], out var accountId) ||
+        !DateOnly.TryParse(form["paymentDate"], System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.None, out var paymentDate))
+        return Results.BadRequest("Choose an attendant, payment account and valid payment date.");
+    var payload = new { attendantId, accountId, paymentDate, notes = form["notes"].ToString() };
+    using var response = await Send(clients, auth, new HttpRequestMessage(HttpMethod.Post, $"api/v1/branches/{branchId}/payroll/payments") { Content = JsonContent.Create(payload) });
+    if (response.IsSuccessStatusCode) return Results.Redirect($"/branches/{branchId}/payroll");
+    var detail = E(await response.Content.ReadAsStringAsync());
+    return Html(Layout("Could not process payroll", "FuelStationERP · Web", auth, $"<section class='panel error'><h2>Could not process salary payment</h2><pre>{detail}</pre><a href='/branches/{branchId}/payroll'>Return to payroll</a></section>"));
 }).RequireAuthorization();
 
 app.MapGet("/branches/{branchId:long}/{resource}", async (long branchId, string resource, HttpContext context, IHttpClientFactory clients) =>
@@ -264,7 +293,7 @@ static string Metric(string title, string value) => $"<article class='metric'><s
 static string Money(JsonNode? node, string key) => decimal.TryParse(node?[key]?.ToString(), System.Globalization.NumberStyles.Number, System.Globalization.CultureInfo.InvariantCulture, out var value) ? $"₦{value:N2}" : "₦0.00";
 static string BranchNav(long branchId, string active)
 {
-    var links = new[] { ("dashboard", "Overview"), ("pump-sessions", "Pump sessions"), ("fuel-receipts", "Deliveries"), ("product-sales", "LPG fills"), ("tank-dips", "Stock checks"), ("expenses", "Expenses"), ("accounts", "Accounts"), ("reports", "Reports"), ("tanks", "Tanks"), ("pumps", "Pumps"), ("attendants", "Attendants"), ("suppliers", "Suppliers"), ("product-prices", "Prices") };
+    var links = new[] { ("dashboard", "Overview"), ("pump-sessions", "Pump sessions"), ("fuel-receipts", "Deliveries"), ("product-sales", "LPG fills"), ("tank-dips", "Stock checks"), ("expenses", "Expenses"), ("accounts", "Accounts"), ("payroll", "Payroll"), ("reports", "Reports"), ("tanks", "Tanks"), ("pumps", "Pumps"), ("attendants", "Attendants"), ("suppliers", "Suppliers"), ("product-prices", "Prices") };
     return "<nav class='branch-nav' aria-label='Branch operations'>" + string.Concat(links.Select(x => $"<a href='/branches/{branchId}{(x.Item1 == "dashboard" ? "" : "/" + x.Item1)}' {(x.Item1 == active ? "aria-current='page'" : "")}>{E(x.Item2)}</a>")) + "</nav>";
 }
 static string RenderRecentSessions(JsonArray? rows)
@@ -313,6 +342,31 @@ static string RenderRecords(JsonNode? node)
     var html = "<div class='table-wrap'><table><thead><tr>" + string.Concat(keys.Select(k => $"<th>{E(k)}</th>")) + "</tr></thead><tbody>";
     foreach (var row in rows) { if (row is null) continue; html += "<tr>" + string.Concat(keys.Select(k => $"<td>{E(row[k]?.ToString())}</td>")) + "</tr>"; }
     return html + "</tbody></table></div>";
+}
+
+static string RenderPayroll(JsonArray previews, JsonArray payments, JsonArray accounts, long branchId, DateOnly paymentDate)
+{
+    var eligibleAccounts = accounts.Where(x => bool.TryParse(Val(x, "isActive"), out var active) && active && Val(x, "accountType") is "CASH" or "BANK").ToArray();
+    var options = string.Concat(eligibleAccounts.Select(x => $"<option value='{E(Val(x, "id"))}'>{E(Val(x, "name"))} · {E(Val(x, "accountType"))} · {E(Money(x, "balance"))}</option>"));
+    var html = "<section class='panel'><h2>Current payroll preview</h2><p>Shorts reduce salary after eligible overages are applied. Overages left after short recovery are added to the payout.</p>";
+    if (previews.Count == 0) html += "<p class='empty'>Add attendants and configure their monthly salary and payday to begin payroll.</p>";
+    foreach (var row in previews)
+    {
+        var name = E(Val(row, "attendantName"));
+        if (!string.IsNullOrWhiteSpace(Val(row, "error")))
+        {
+            html += $"<article class='payroll-card'><div><h3>{name}</h3><p class='error-text'>{E(Val(row, "error"))}</p><a class='link' href='/branches/{branchId}/attendants'>Update attendant details →</a></div></article>";
+            continue;
+        }
+        var due = bool.TryParse(Val(row, "isDue"), out var isDue) && isDue;
+        html += $"<article class='payroll-card'><div class='payroll-heading'><div><h3>{name}</h3><p>Payday {E(Val(row, "payday"))} · period starts {E(Val(row, "periodStart"))}</p></div><span class='status-chip {(due ? "due" : "scheduled")}'>{(due ? "Due" : "Scheduled")}</span></div><div class='payroll-totals'>{Metric("Base salary", Money(row, "baseSalary"))}{Metric("Outstanding short", Money(row, "outstandingShort"))}{Metric("Overage offset", Money(row, "overageOffset"))}{Metric("Salary deduction", Money(row, "shortDeduction"))}{Metric("Overage credit", Money(row, "overageCredit"))}{Metric("Net salary", Money(row, "netSalary"))}</div>";
+        if (due && eligibleAccounts.Length > 0)
+            html += $"<form method='post' action='/branches/{branchId}/payroll/payments' class='form-grid payroll-form'><input type='hidden' name='attendantId' value='{E(Val(row, "attendantId"))}'><label>Pay from<select name='accountId' required>{options}</select></label><label>Payment date<input name='paymentDate' type='date' value='{paymentDate:yyyy-MM-dd}' required></label><label>Notes<input name='notes' maxlength='500'></label><button>Record salary payment</button></form>";
+        else if (due) html += "<p class='empty'>Create an active Cash or Bank account before paying salary.</p>";
+        html += "</article>";
+    }
+    html += "</section><section class='panel'><h2>Recent salary payments</h2>" + RenderRecords(payments) + "</section>";
+    return html;
 }
 
 static string RenderReportRows(JsonArray rows)

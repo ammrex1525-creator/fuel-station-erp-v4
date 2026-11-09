@@ -17,6 +17,8 @@ public sealed class ErpDbContext(DbContextOptions<ErpDbContext> options) : Ident
     public DbSet<ReceiptShortSettlement> ReceiptShortSettlements => Set<ReceiptShortSettlement>(); public DbSet<SyncSubmission> SyncSubmissions => Set<SyncSubmission>();
     public DbSet<StaffAttendant> StaffAttendants => Set<StaffAttendant>(); public DbSet<PumpSessionAudit> PumpSessionAudits => Set<PumpSessionAudit>();
     public DbSet<PumpRunReceipt> PumpRunReceipts => Set<PumpRunReceipt>(); public DbSet<AttendantShortAllocation> AttendantShortAllocations => Set<AttendantShortAllocation>();
+    public DbSet<AttendantSalaryPayment> AttendantSalaryPayments => Set<AttendantSalaryPayment>();
+    public DbSet<AttendantSalaryOverageAllocation> AttendantSalaryOverageAllocations => Set<AttendantSalaryOverageAllocation>();
 
     protected override void OnModelCreating(ModelBuilder b)
     {
@@ -35,6 +37,9 @@ public sealed class ErpDbContext(DbContextOptions<ErpDbContext> options) : Ident
         b.Entity<PumpRunReceipt>().HasIndex(x => new { x.PumpRunId, x.FuelReceiptId }).IsUnique();
         b.Entity<AttendantShortAllocation>().HasIndex(x => new { x.ReconciliationId, x.PumpSessionId }).IsUnique();
         b.Entity<ProductSaleAllocation>().HasIndex(x => new { x.ProductSaleId, x.FuelReceiptId }).IsUnique();
+        b.Entity<AttendantSalaryPayment>().HasIndex(x => new { x.AttendantId, x.Payday }).IsUnique();
+        b.Entity<AttendantSalaryOverageAllocation>().Property(x => x.AllocationType).HasMaxLength(32);
+        b.Entity<AttendantSalaryOverageAllocation>().HasIndex(x => new { x.PaymentId, x.PumpSessionId, x.AllocationType }).IsUnique();
         foreach (var type in b.Model.GetEntityTypes().Where(t => typeof(IBranchEntity).IsAssignableFrom(t.ClrType)))
         {
             var entity = b.Entity(type.ClrType); entity.Property(nameof(IBranchEntity.BranchId)).IsRequired();
@@ -45,6 +50,8 @@ public sealed class ErpDbContext(DbContextOptions<ErpDbContext> options) : Ident
         b.Entity<AttendantShortReconciliation>().Property(x => x.RecoveryDate).HasColumnType("date");
         b.Entity<ReceiptShortSettlement>().Property(x => x.SettlementDate).HasColumnType("date");
         b.Entity<ProductPrice>().Property(x => x.EffectiveDate).HasColumnType("date");
+        b.Entity<AttendantSalaryPayment>().Property(x => x.Payday).HasColumnType("date");
+        b.Entity<AttendantSalaryPayment>().Property(x => x.PaidDate).HasColumnType("date");
         foreach (var type in b.Model.GetEntityTypes()) foreach (var property in type.GetProperties().Where(p => p.ClrType == typeof(decimal) || p.ClrType == typeof(decimal?)))
             b.Entity(type.ClrType).Property(property.Name).HasPrecision(19, 4);
     }

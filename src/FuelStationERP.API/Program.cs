@@ -23,6 +23,7 @@ builder.Services.AddDbContext<ErpDbContext>(o =>
 });
 builder.Services.AddScoped<FifoInventoryService>();
 builder.Services.AddScoped<ProductSaleInventoryService>();
+builder.Services.AddScoped<AttendantPayrollService>();
 builder.Services.AddIdentityCore<ApplicationUser>(o =>
 {
     o.User.RequireUniqueEmail = true;
@@ -70,12 +71,22 @@ await using (var scope = app.Services.CreateAsyncScope())
         }
         await db.Database.ExecuteSqlRawAsync("CREATE TABLE IF NOT EXISTS ProductPrices (Id INTEGER NOT NULL CONSTRAINT PK_ProductPrices PRIMARY KEY AUTOINCREMENT, ProductId INTEGER NOT NULL, UnitPrice TEXT NOT NULL, EffectiveDate TEXT NOT NULL);");
         await db.Database.ExecuteSqlRawAsync("CREATE UNIQUE INDEX IF NOT EXISTS IX_ProductPrices_ProductId_EffectiveDate ON ProductPrices (ProductId, EffectiveDate);");
+        await db.Database.ExecuteSqlRawAsync("CREATE TABLE IF NOT EXISTS AttendantSalaryPayments (Id INTEGER NOT NULL CONSTRAINT PK_AttendantSalaryPayments PRIMARY KEY AUTOINCREMENT, BranchId INTEGER NOT NULL, AttendantId INTEGER NOT NULL, Payday TEXT NOT NULL, PaidDate TEXT NOT NULL, BaseSalary TEXT NOT NULL, ShortDeduction TEXT NOT NULL, OverageOffset TEXT NOT NULL, OverageCredit TEXT NOT NULL, NetSalary TEXT NOT NULL, AccountId INTEGER NOT NULL, AccountTransactionId INTEGER NULL, ExpenseId INTEGER NULL, Notes TEXT NULL);");
+        await db.Database.ExecuteSqlRawAsync("CREATE TABLE IF NOT EXISTS AttendantSalaryOverageAllocations (Id INTEGER NOT NULL CONSTRAINT PK_AttendantSalaryOverageAllocations PRIMARY KEY AUTOINCREMENT, PaymentId INTEGER NOT NULL, PumpSessionId INTEGER NOT NULL, AllocationType TEXT NOT NULL, Amount TEXT NOT NULL);");
+        await db.Database.ExecuteSqlRawAsync("CREATE UNIQUE INDEX IF NOT EXISTS IX_AttendantSalaryPayments_AttendantId_Payday ON AttendantSalaryPayments (AttendantId, Payday);");
+        await db.Database.ExecuteSqlRawAsync("CREATE INDEX IF NOT EXISTS IX_AttendantSalaryPayments_BranchId ON AttendantSalaryPayments (BranchId);");
+        await db.Database.ExecuteSqlRawAsync("CREATE UNIQUE INDEX IF NOT EXISTS IX_AttendantSalaryOverageAllocations_PaymentId_PumpSessionId_AllocationType ON AttendantSalaryOverageAllocations (PaymentId, PumpSessionId, AllocationType);");
     }
     else
     {
         await db.Database.ExecuteSqlRawAsync("IF COL_LENGTH(N'dbo.TankDips', N'BaselineCost') IS NULL ALTER TABLE [TankDips] ADD [BaselineCost] decimal(19,4) NULL;");
         await db.Database.ExecuteSqlRawAsync("IF OBJECT_ID(N'[ProductPrices]', N'U') IS NULL CREATE TABLE [ProductPrices] ([Id] bigint IDENTITY(1,1) NOT NULL CONSTRAINT [PK_ProductPrices] PRIMARY KEY, [ProductId] bigint NOT NULL, [UnitPrice] decimal(19,4) NOT NULL, [EffectiveDate] date NOT NULL);");
         await db.Database.ExecuteSqlRawAsync("IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name=N'IX_ProductPrices_ProductId_EffectiveDate' AND object_id=OBJECT_ID(N'[ProductPrices]')) CREATE UNIQUE INDEX [IX_ProductPrices_ProductId_EffectiveDate] ON [ProductPrices] ([ProductId], [EffectiveDate]);");
+        await db.Database.ExecuteSqlRawAsync("IF OBJECT_ID(N'[AttendantSalaryPayments]', N'U') IS NULL CREATE TABLE [AttendantSalaryPayments] ([Id] bigint IDENTITY(1,1) NOT NULL CONSTRAINT [PK_AttendantSalaryPayments] PRIMARY KEY, [BranchId] bigint NOT NULL, [AttendantId] bigint NOT NULL, [Payday] date NOT NULL, [PaidDate] date NOT NULL, [BaseSalary] decimal(19,4) NOT NULL, [ShortDeduction] decimal(19,4) NOT NULL, [OverageOffset] decimal(19,4) NOT NULL, [OverageCredit] decimal(19,4) NOT NULL, [NetSalary] decimal(19,4) NOT NULL, [AccountId] bigint NOT NULL, [AccountTransactionId] bigint NULL, [ExpenseId] bigint NULL, [Notes] nvarchar(max) NULL);");
+        await db.Database.ExecuteSqlRawAsync("IF OBJECT_ID(N'[AttendantSalaryOverageAllocations]', N'U') IS NULL CREATE TABLE [AttendantSalaryOverageAllocations] ([Id] bigint IDENTITY(1,1) NOT NULL CONSTRAINT [PK_AttendantSalaryOverageAllocations] PRIMARY KEY, [PaymentId] bigint NOT NULL, [PumpSessionId] bigint NOT NULL, [AllocationType] nvarchar(32) NOT NULL, [Amount] decimal(19,4) NOT NULL);");
+        await db.Database.ExecuteSqlRawAsync("IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name=N'IX_AttendantSalaryPayments_AttendantId_Payday' AND object_id=OBJECT_ID(N'[AttendantSalaryPayments]')) CREATE UNIQUE INDEX [IX_AttendantSalaryPayments_AttendantId_Payday] ON [AttendantSalaryPayments] ([AttendantId], [Payday]);");
+        await db.Database.ExecuteSqlRawAsync("IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name=N'IX_AttendantSalaryPayments_BranchId' AND object_id=OBJECT_ID(N'[AttendantSalaryPayments]')) CREATE INDEX [IX_AttendantSalaryPayments_BranchId] ON [AttendantSalaryPayments] ([BranchId]);");
+        await db.Database.ExecuteSqlRawAsync("IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name=N'IX_AttendantSalaryOverageAllocations_PaymentId_PumpSessionId_AllocationType' AND object_id=OBJECT_ID(N'[AttendantSalaryOverageAllocations]')) CREATE UNIQUE INDEX [IX_AttendantSalaryOverageAllocations_PaymentId_PumpSessionId_AllocationType] ON [AttendantSalaryOverageAllocations] ([PaymentId], [PumpSessionId], [AllocationType]);");
     }
     if (!await db.Branches.AnyAsync())
     {
